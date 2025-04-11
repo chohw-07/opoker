@@ -1,0 +1,1988 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>카지노 P2P 포커</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.4.7/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    
+    <!-- 페이지 로드 시 안내 추가 -->
+    <script>
+        window.addEventListener('load', function() {
+            // 로컬 파일로 실행 중인지 확인
+            if (window.location.protocol === 'file:') {
+                alert('주의: 이 게임은 로컬 파일에서는 제대로 작동하지 않을 수 있습니다. 웹 서버를 통해 실행하세요.\n\n참고: VS Code의 Live Server 확장 프로그램 또는 간단한 HTTP 서버를 사용하세요.');
+            }
+        });
+    </script>
+    <style>
+        :root {
+            --bg-color: #0a4c2b;
+            --table-color: #0c6e3d;
+            --accent-color: #e4b646;
+            --text-color: #ffffff;
+            --card-width: 80px;
+            --card-height: 120px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* 로비 섹션 */
+        #lobby {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background: linear-gradient(135deg, #0a4c2b, #062617);
+            position: relative;
+            z-index: 10;
+        }
+
+        .lobby-container {
+            background-color: rgba(12, 41, 24, 0.9);
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            width: 90%;
+            max-width: 500px;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 3rem;
+            color: var(--accent-color);
+            margin-bottom: 20px;
+            text-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+        }
+
+        .input-group {
+            margin: 15px 0;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 5px;
+            border: 2px solid #0c6e3d;
+            background-color: #031b10;
+            color: white;
+            font-size: 1.2rem;
+            text-align: center;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border-radius: 5px;
+            border: none;
+            background-color: var(--accent-color);
+            color: #062617;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 5px;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-group {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        /* 게임 테이블 섹션 */
+        #gameRoom {
+            display: flex;
+            height: 100vh;
+            flex-direction: column;
+        }
+
+        .table-container {
+            flex: 1;
+            display: flex;
+            position: relative;
+            background-color: var(--table-color);
+            border-radius: 50%;
+            margin: 20px;
+            box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .table-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60%;
+            height: 60%;
+            border-radius: 50%;
+            background-color: #095031;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .pot {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+        }
+
+        .community-cards {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        /* 플레이어 섹션 */
+        .player-positions {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+        }
+
+        .player {
+            position: absolute;
+            width: 160px;
+            height: 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transform: translate(-50%, -50%);
+        }
+
+        .player-info {
+            background-color: rgba(0, 0, 0, 0.6);
+            border-radius: 10px;
+            padding: 8px;
+            margin-bottom: 10px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .player-name {
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+        }
+
+        .player-chips {
+            font-size: 0.8rem;
+            color: var(--accent-color);
+        }
+
+        .player-cards {
+            display: flex;
+            justify-content: center;
+        }
+
+        /* 카드 스타일 */
+        .card {
+            width: var(--card-width);
+            height: var(--card-height);
+            border-radius: 5px;
+            margin: 0 2px;
+            background-color: white;
+            position: relative;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+            transform-style: preserve-3d;
+            transition: transform 0.5s;
+            transform: rotateY(180deg);
+        }
+
+        .card.flipped {
+            transform: rotateY(0deg);
+        }
+
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 5px;
+        }
+
+        .card-front {
+            background-color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 5px;
+        }
+
+        .card-back {
+            background: linear-gradient(135deg, #b71c1c, #7f0000);
+            transform: rotateY(180deg);
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><path fill="%23600" d="M0,0V40H40V0H0ZM37,37H3V3H37V37Z"/><path fill="%23600" d="M13.5,10.5L20,17l6.5-6.5L30,14l-10,10L10,14L13.5,10.5z"/></svg>');
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        .card-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .card-suit {
+            font-size: 1.5rem;
+            align-self: center;
+        }
+
+        .red {
+            color: #b71c1c;
+        }
+
+        .black {
+            color: #000000;
+        }
+
+        /* 액션 버튼 */
+        .action-container {
+            display: flex;
+            justify-content: center;
+            padding: 15px;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .action-btn {
+            padding: 10px 20px;
+            margin: 0 5px;
+            border-radius: 5px;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-3px);
+        }
+
+        .btn-fold {
+            background-color: #b71c1c;
+            color: white;
+        }
+
+        .btn-check {
+            background-color: #3949ab;
+            color: white;
+        }
+
+        .btn-call {
+            background-color: #388e3c;
+            color: white;
+        }
+
+        .btn-raise {
+            background-color: #ffa000;
+            color: black;
+        }
+
+        .raise-controls {
+            display: flex;
+            align-items: center;
+            margin-left: 10px;
+        }
+
+        .raise-amount {
+            width: 80px;
+            padding: 8px;
+            border-radius: 5px;
+            border: none;
+            text-align: center;
+            margin: 0 5px;
+        }
+
+        /* 채팅 섹션 */
+        .game-chat {
+            position: absolute;
+            bottom: 80px;
+            right: 20px;
+            width: 300px;
+            height: 300px;
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            padding: 5px;
+        }
+
+        .chat-form {
+            display: flex;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 8px;
+            border-radius: 5px;
+            border: none;
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .chat-submit {
+            padding: 8px 15px;
+            margin-left: 5px;
+            border-radius: 5px;
+            border: none;
+            background-color: var(--accent-color);
+            color: black;
+            cursor: pointer;
+        }
+
+        /* 룸 정보 */
+        .room-info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .room-code {
+            font-size: 1.2rem;
+            color: var(--accent-color);
+        }
+
+        /* 애니메이션 및 모달 */
+        .message-box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            z-index: 100;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+            max-width: 80%;
+            max-height: 80%;
+            overflow-y: auto;
+        }
+
+        /* 모바일 반응형 */
+        @media (max-width: 768px) {
+            .game-chat {
+                width: 220px;
+                height: 250px;
+            }
+
+            .card {
+                --card-width: 60px;
+                --card-height: 90px;
+            }
+
+            .player {
+                width: 120px;
+                height: 150px;
+            }
+
+            .action-container {
+                flex-wrap: wrap;
+            }
+
+            .action-btn {
+                margin: 5px;
+            }
+        }
+
+        /* 튜토리얼 스타일 */
+        .tutorial {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 200;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .tutorial-content {
+            background-color: rgba(12, 41, 24, 0.95);
+            border-radius: 10px;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 30px;
+            position: relative;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+        }
+
+        .tutorial h2 {
+            color: var(--accent-color);
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+        }
+
+        .tutorial p {
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+
+        .tutorial-step {
+            margin-bottom: 25px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 20px;
+        }
+
+        .tutorial-step:last-child {
+            border-bottom: none;
+        }
+
+        .tutorial-step h3 {
+            color: var(--accent-color);
+            margin-bottom: 10px;
+        }
+
+        .tutorial-navigation {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+
+        .card-ranking {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .card-rank {
+            background-color: rgba(0, 0, 0, 0.4);
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .card-rank h4 {
+            color: var(--accent-color);
+            margin-bottom: 5px;
+        }
+
+        .help-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: var(--accent-color);
+            color: #062617;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .tutorial-tab {
+            display: none;
+        }
+
+        .tutorial-tab.active {
+            display: block;
+        }
+
+        .tab-buttons {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .tab-btn {
+            padding: 10px 15px;
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            margin-right: 5px;
+            border-bottom: 3px solid transparent;
+        }
+
+        .tab-btn.active {
+            border-bottom: 3px solid var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        .action-help {
+            font-size: 0.8rem;
+            color: #aaa;
+            margin-top: 5px;
+        }
+
+        .game-phase-indicator {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 1rem;
+            color: var(--accent-color);
+            z-index: 50;
+        }
+
+        .turn-indicator {
+            position: absolute;
+            border: 3px solid #ffc107;
+            border-radius: 15px;
+            box-shadow: 0 0 15px #ffc107;
+            animation: pulse 1.5s infinite;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 5px #ffc107;
+            }
+            50% {
+                box-shadow: 0 0 20px #ffc107;
+            }
+            100% {
+                box-shadow: 0 0 5px #ffc107;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 로비 섹션 -->
+    <div id="lobby">
+        <div class="lobby-container">
+            <h1 class="logo">♠️ 카지노 포커 ♠️</h1>
+            <div class="input-group">
+                <input type="text" id="nickname" placeholder="닉네임을 입력하세요" maxlength="10">
+            </div>
+            <div class="input-group">
+                <input type="text" id="roomCode" placeholder="방 코드 (4자리)" maxlength="4">
+            </div>
+            <div class="btn-group">
+                <button id="createRoom" class="btn">방 만들기</button>
+                <button id="joinRoom" class="btn">입장하기</button>
+            </div>
+            <div id="lobbyMessage" style="margin-top: 15px; color: #ffcc00;"></div>
+        </div>
+    </div>
+
+    <!-- 게임룸 섹션 -->
+    <div id="gameRoom" class="hidden">
+        <div class="room-info">
+            <div>방 코드: <span class="room-code" id="displayRoomCode">0000</span></div>
+        </div>
+
+        <button class="help-btn" id="showHelp">?</button>
+        <div class="game-phase-indicator" id="gamePhaseIndicator">대기 중</div>
+
+        <div class="table-container">
+            <div class="player-positions" id="playerPositions">
+                <!-- 플레이어들은 JS로 동적 생성 -->
+            </div>
+
+            <div class="table-center">
+                <div class="pot" id="potAmount">팟: $0</div>
+                <div class="community-cards" id="communityCards">
+                    <!-- 커뮤니티 카드는 JS로 동적 생성 -->
+                </div>
+            </div>
+        </div>
+
+        <div class="action-container" id="actionContainer">
+            <button class="action-btn btn-fold" id="btnFold">폴드</button>
+            <button class="action-btn btn-check" id="btnCheck">체크</button>
+            <button class="action-btn btn-call" id="btnCall">콜 $0</button>
+            <button class="action-btn btn-raise" id="btnRaise">레이즈</button>
+            <div class="raise-controls">
+                <input type="number" class="raise-amount" id="raiseAmount" min="0" value="0">
+            </div>
+        </div>
+
+        <div class="game-chat">
+            <div class="chat-messages" id="chatMessages"></div>
+            <form class="chat-form" id="chatForm">
+                <input type="text" class="chat-input" id="chatInput" placeholder="메시지 입력...">
+                <button type="submit" class="chat-submit">전송</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="messageBox" class="message-box hidden">
+        <h2 id="messageTitle">알림</h2>
+        <p id="messageContent">내용이 여기 표시됩니다.</p>
+        <button class="btn" id="messageOk">확인</button>
+    </div>
+
+    <!-- 튜토리얼 섹션 추가 -->
+    <div id="tutorial" class="tutorial hidden">
+        <div class="tutorial-content">
+            <button class="close-btn" id="closeTutorial">×</button>
+            
+            <div class="tab-buttons">
+                <button class="tab-btn active" data-tab="basics">기본 규칙</button>
+                <button class="tab-btn" data-tab="handRanking">카드 순위</button>
+                <button class="tab-btn" data-tab="gamePlay">게임 진행</button>
+                <button class="tab-btn" data-tab="interface">인터페이스</button>
+            </div>
+            
+            <div id="basicsTab" class="tutorial-tab active">
+                <h2>포커 기본 규칙</h2>
+                
+                <div class="tutorial-step">
+                    <h3>텍사스 홀덤 포커란?</h3>
+                    <p>텍사스 홀덤은 가장 인기 있는 포커 게임 중 하나로, 각 플레이어는 2장의 개인 카드와 5장의 공유 카드를 사용하여 최고의 5장 카드 조합을 만듭니다.</p>
+                </div>
+                
+                <div class="tutorial-step">
+                    <h3>게임 목표</h3>
+                    <p>최고의 5장 카드 조합을 만들거나 다른 모든 플레이어들이 포기(폴드)하도록 하는 것이 목표입니다.</p>
+                </div>
+                
+                <div class="tutorial-step">
+                    <h3>기본 용어</h3>
+                    <p><strong>폴드(Fold)</strong>: 게임에서 포기하고 베팅한 금액을 잃습니다.</p>
+                    <p><strong>체크(Check)</strong>: 베팅 없이 차례를 넘깁니다. 앞서 베팅한 사람이 없을 때만 가능합니다.</p>
+                    <p><strong>콜(Call)</strong>: 다른 플레이어의 베팅과 동일한 금액을 베팅합니다.</p>
+                    <p><strong>레이즈(Raise)</strong>: 현재 베팅보다 더 많은 금액을 베팅합니다.</p>
+                    <p><strong>팟(Pot)</strong>: 모든 플레이어가 베팅한 총 금액입니다.</p>
+                </div>
+            </div>
+            
+            <div id="handRankingTab" class="tutorial-tab">
+                <h2>카드 조합 순위</h2>
+                
+                <div class="card-ranking">
+                    <div class="card-rank">
+                        <h4>로열 스트레이트 플러시</h4>
+                        <p>동일한 무늬의 10, J, Q, K, A</p>
+                    </div>
+                    
+                    <div class="card-rank">
+                        <h4>스트레이트 플러시</h4>
+                        <p>동일한 무늬의 연속된 5장의 카드</p>
+                    </div>
+                    
+                    <div class="card-rank">
+                        <h4>포카드</h4>
+                        <p>같은 숫자 4장</p>
+                    </div>
+                    
+                    <div class="card-rank">
+                        <h4>풀하우스</h4>
+                        <p>트리플(3장) + 페어(2장)</p>
+                    </div>
+                    
+                    <div class="card-rank">
+                        <h4>플러시</h4>
+                        <p>동일한 무늬 5장</p>
+                    </div>
+                    
+                    <div class="card-rank">
+                        <h4>스트레이트</h4>
+                        <p>연속된 숫자 5장</p>
+                    </div>
+                    
+                    <div class="card-rank">
+                        <h4>트리플</h4>
+                        <p>같은 숫자 3장</p>
+                    </div>
+                    
+                    <div class="card-rank">
+                        <h4>투페어</h4>
+                        <p>두 쌍의 페어</p>
+                    </div>
+                    
+                    <div class="card-rank">
+                        <h4>원페어</h4>
+                        <p>같은 숫자 2장</p>
+                    </div>
+                    
+                    <div class="card-rank">
+                        <h4>하이카드</h4>
+                        <p>어떤 조합도 만들지 못했을 때 가장 높은 카드</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="gamePlayTab" class="tutorial-tab">
+                <h2>게임 진행 방법</h2>
+                
+                <div class="tutorial-step">
+                    <h3>1. 프리플랍(Pre-flop)</h3>
+                    <p>각 플레이어는 2장의 개인 카드를 받습니다. 첫 번째 베팅 라운드가 시작됩니다.</p>
+                </div>
+                
+                <div class="tutorial-step">
+                    <h3>2. 플랍(Flop)</h3>
+                    <p>테이블 중앙에 3장의 공유 카드가 공개됩니다. 두 번째 베팅 라운드가 시작됩니다.</p>
+                </div>
+                
+                <div class="tutorial-step">
+                    <h3>3. 턴(Turn)</h3>
+                    <p>4번째 공유 카드가 공개됩니다. 세 번째 베팅 라운드가 시작됩니다.</p>
+                </div>
+                
+                <div class="tutorial-step">
+                    <h3>4. 리버(River)</h3>
+                    <p>5번째이자 마지막 공유 카드가 공개됩니다. 마지막 베팅 라운드가 시작됩니다.</p>
+                </div>
+                
+                <div class="tutorial-step">
+                    <h3>5. 쇼다운(Showdown)</h3>
+                    <p>남아있는 플레이어들이 자신의 카드를 공개하고, 가장 좋은 5장의 카드 조합을 가진 사람이 승리합니다.</p>
+                </div>
+                
+                <div class="tutorial-step">
+                    <h3>초보자 팁</h3>
+                    <p>• 포지션을 주의 깊게 살펴보세요. 나중에 행동하는 것이 유리합니다.</p>
+                    <p>• 처음에는 좋은 핸드(A-A, K-K, Q-Q, A-K, A-Q 등)만 플레이하세요.</p>
+                    <p>• 확률을 이해하세요. 플러시나 스트레이트를 완성할 확률을 알면 도움이 됩니다.</p>
+                    <p>• 상대방의 베팅 패턴을 주시하세요.</p>
+                </div>
+            </div>
+            
+            <div id="interfaceTab" class="tutorial-tab">
+                <h2>게임 인터페이스 사용법</h2>
+                
+                <div class="tutorial-step">
+                    <h3>테이블 영역</h3>
+                    <p>• <strong>중앙 부분</strong>: 공유 카드와 팟 금액이 표시됩니다.</p>
+                    <p>• <strong>플레이어 위치</strong>: 각 플레이어의 정보와 카드가 표시됩니다.</p>
+                    <p>• <strong>상단 표시</strong>: 현재 게임 단계가 표시됩니다.</p>
+                </div>
+                
+                <div class="tutorial-step">
+                    <h3>액션 버튼</h3>
+                    <p>• <strong>폴드(빨간색)</strong>: 게임에서 포기합니다.</p>
+                    <p>• <strong>체크(파란색)</strong>: 베팅 없이 차례를 넘깁니다.</p>
+                    <p>• <strong>콜(녹색)</strong>: 현재 베팅과 동일한 금액을 베팅합니다.</p>
+                    <p>• <strong>레이즈(노란색)</strong>: 더 많은 금액을 베팅합니다.</p>
+                </div>
+                
+                <div class="tutorial-step">
+                    <h3>채팅 및 기타 기능</h3>
+                    <p>• <strong>채팅 창</strong>: 오른쪽 하단에 있으며, 다른 플레이어들과 대화할 수 있습니다.</p>
+                    <p>• <strong>도움말</strong>: 오른쪽 상단의 물음표 버튼을 클릭하면 언제든지 이 튜토리얼을 다시 볼 수 있습니다.</p>
+                    <p>• <strong>방 코드</strong>: 왼쪽 상단에 표시되며, 다른 사람들을 초대할 때 사용합니다.</p>
+                </div>
+            </div>
+            
+            <div class="tutorial-navigation">
+                <button class="btn" id="tutorialOk">게임 시작하기</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 게임의 전역 상태
+        const gameState = {
+            roomCode: '',
+            players: [],
+            currentPlayerId: null,
+            myId: null,
+            isHost: false,
+            pot: 0,
+            currentBet: 0,
+            communityCards: [],
+            myCards: [],
+            gamePhase: 'waiting', // waiting, preflop, flop, turn, river, showdown
+            deck: [],
+            connections: [],
+            lastError: null
+        };
+
+        // DOM 요소
+        const lobby = document.getElementById('lobby');
+        const gameRoom = document.getElementById('gameRoom');
+        const nicknameInput = document.getElementById('nickname');
+        const roomCodeInput = document.getElementById('roomCode');
+        const createRoomBtn = document.getElementById('createRoom');
+        const joinRoomBtn = document.getElementById('joinRoom');
+        const lobbyMessage = document.getElementById('lobbyMessage');
+        const displayRoomCode = document.getElementById('displayRoomCode');
+        const potAmount = document.getElementById('potAmount');
+        const playerPositions = document.getElementById('playerPositions');
+        const communityCards = document.getElementById('communityCards');
+        const actionContainer = document.getElementById('actionContainer');
+        const btnFold = document.getElementById('btnFold');
+        const btnCheck = document.getElementById('btnCheck');
+        const btnCall = document.getElementById('btnCall');
+        const btnRaise = document.getElementById('btnRaise');
+        const raiseAmount = document.getElementById('raiseAmount');
+        const chatMessages = document.getElementById('chatMessages');
+        const chatForm = document.getElementById('chatForm');
+        const chatInput = document.getElementById('chatInput');
+        const messageBox = document.getElementById('messageBox');
+        const messageTitle = document.getElementById('messageTitle');
+        const messageContent = document.getElementById('messageContent');
+        const messageOk = document.getElementById('messageOk');
+
+        // 마지막 저장된 닉네임 로드
+        if (localStorage.getItem('pokerNickname')) {
+            nicknameInput.value = localStorage.getItem('pokerNickname');
+        }
+
+        // 방 생성 버튼 이벤트
+        createRoomBtn.addEventListener('click', () => {
+            const nickname = nicknameInput.value.trim();
+            if (!nickname) {
+                showLobbyMessage('닉네임을 입력해주세요.');
+                return;
+            }
+
+            // 랜덤 4자리 숫자 생성
+            const code = Math.floor(1000 + Math.random() * 9000).toString();
+            roomCodeInput.value = code;
+            
+            // 방 생성 (호스트 역할)
+            createPokerRoom(code, nickname);
+        });
+
+        // 방 참가 버튼 이벤트
+        joinRoomBtn.addEventListener('click', () => {
+            const nickname = nicknameInput.value.trim();
+            const roomCode = roomCodeInput.value.trim();
+            
+            if (!nickname) {
+                showLobbyMessage('닉네임을 입력해주세요.');
+                return;
+            }
+            
+            if (!roomCode || roomCode.length !== 4 || isNaN(roomCode)) {
+                showLobbyMessage('올바른 4자리 방 코드를 입력해주세요.');
+                return;
+            }
+            
+            // 방 참가 (게스트 역할)
+            joinPokerRoom(roomCode, nickname);
+        });
+
+        // 메시지 박스 확인 버튼
+        messageOk.addEventListener('click', () => {
+            messageBox.classList.add('hidden');
+        });
+
+        // 채팅 폼 제출
+        chatForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const message = chatInput.value.trim();
+            if (message) {
+                sendChatMessage(message);
+                chatInput.value = '';
+            }
+        });
+
+        // 액션 버튼 이벤트 리스너
+        btnFold.addEventListener('click', () => performAction('fold'));
+        btnCheck.addEventListener('click', () => performAction('check'));
+        btnCall.addEventListener('click', () => performAction('call'));
+        btnRaise.addEventListener('click', () => {
+            const amount = parseInt(raiseAmount.value);
+            if (amount > 0) {
+                performAction('raise', amount);
+            }
+        });
+
+        // PeerJS 인스턴스 생성
+        let peer;
+        // Socket.io 제거
+
+        // 로비 메시지 표시 함수
+        function showLobbyMessage(message) {
+            lobbyMessage.textContent = message;
+            setTimeout(() => {
+                lobbyMessage.textContent = '';
+            }, 3000);
+        }
+
+        // 메시지 박스 표시 함수
+        function showMessage(title, content) {
+            messageTitle.textContent = title;
+            messageContent.textContent = content;
+            messageBox.classList.remove('hidden');
+        }
+
+        // 방 생성 함수 (호스트)
+        function createPokerRoom(roomCode, nickname) {
+            localStorage.setItem('pokerNickname', nickname);
+            gameState.roomCode = roomCode;
+            gameState.isHost = true;
+            
+            // PeerJS 초기화
+            setupPeerServer(roomCode, nickname);
+            
+            // Socket.io 연결 (글리치 서버 등으로 대체 가능)
+            setupSocketConnection(roomCode, nickname);
+            
+            // UI 업데이트
+            displayRoomCode.textContent = roomCode;
+            
+            // 로비에서 게임룸으로 전환
+            lobby.classList.add('hidden');
+            gameRoom.classList.remove('hidden');
+            
+            // 호스트 플레이어 추가
+            const myPlayer = {
+                id: gameState.myId,
+                nickname: nickname,
+                chips: 1000,
+                cards: [],
+                bet: 0,
+                folded: false,
+                position: 0 // 호스트는 항상 아래쪽 중앙
+            };
+            
+            gameState.players.push(myPlayer);
+            renderPlayers();
+            
+            // 초기 게임 상태 설정
+            initGameDeck();
+        }
+
+        // 방 참가 함수 (게스트)
+        function joinPokerRoom(roomCode, nickname) {
+            localStorage.setItem('pokerNickname', nickname);
+            gameState.roomCode = roomCode;
+            gameState.isHost = false;
+            
+            // PeerJS 초기화 (게스트 모드)
+            setupPeerClient(roomCode, nickname);
+            
+            // Socket.io 연결
+            setupSocketConnection(roomCode, nickname);
+            
+            // UI 업데이트
+            displayRoomCode.textContent = roomCode;
+            
+            // 자신의 플레이어 정보 초기화
+            const myPlayer = {
+                id: generatePlayerId(),
+                nickname: nickname,
+                chips: 1000,
+                cards: [],
+                bet: 0,
+                folded: false
+            };
+            
+            gameState.myId = myPlayer.id;
+            
+            // 호스트에게 입장 알림
+            // 실제 연결은 setupPeerClient에서 처리
+        }
+
+        // PeerJS 서버 설정 (호스트용)
+        function setupPeerServer(roomCode, nickname) {
+            // 플레이어 ID 생성
+            gameState.myId = generatePlayerId();
+            
+            // 더 안정적인 PeerJS 연결을 위한 옵션 설정
+            const peerOptions = {
+                debug: 2, // 로그 레벨 (0-3)
+                config: {
+                    'iceServers': [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' }
+                    ]
+                }
+            };
+            
+            peer = new Peer(roomCode, peerOptions); // 방 코드를 Peer ID로 사용
+            
+            peer.on('open', (id) => {
+                console.log('호스트 연결 성공, ID:', id);
+                addChatMessage('시스템', '방이 생성되었습니다. 방 코드: ' + roomCode);
+            });
+            
+            peer.on('connection', (conn) => {
+                console.log('새로운 플레이어가 연결됨:', conn.peer);
+                
+                // 연결 정보 저장
+                gameState.connections.push(conn);
+                
+                conn.on('open', () => {
+                    // 새 플레이어에게 현재 게임 상태 전송 (직렬화 문제 해결)
+                    const safeGameState = createSafeGameState();
+                    conn.send({
+                        type: 'gameState',
+                        data: safeGameState
+                    });
+                });
+                
+                conn.on('data', (data) => {
+                    handlePeerMessage(data, conn);
+                });
+                
+                conn.on('close', () => {
+                    // 연결이 끊긴 플레이어 처리
+                    handlePlayerDisconnect(conn.peer);
+                });
+                
+                conn.on('error', (err) => {
+                    console.error('연결 오류:', err);
+                });
+            });
+            
+            peer.on('error', (err) => {
+                console.error('PeerJS 오류:', err);
+                showMessage('연결 오류', '서버 연결에 실패했습니다. 다시 시도해주세요.');
+            });
+        }
+        
+        // 안전한 게임상태 객체 생성 (직렬화 문제 방지)
+        function createSafeGameState() {
+            // 함수나 복잡한 객체를 포함하지 않은 복사본 생성
+            // 직접 객체 생성으로 순환 참조 방지
+            const safePlayers = gameState.players.map(player => {
+                return {
+                    id: player.id,
+                    nickname: player.nickname,
+                    chips: player.chips,
+                    bet: player.bet,
+                    folded: player.folded,
+                    position: player.position,
+                    // 카드 정보는 깊은 복사로 새로 생성
+                    cards: player.cards ? player.cards.map(card => ({...card})) : []
+                };
+            });
+            
+            const safeCommunityCards = gameState.communityCards.map(card => ({...card}));
+            
+            // 원시형 타입과 새로 생성한 배열만 포함
+            const safeState = {
+                roomCode: gameState.roomCode,
+                players: safePlayers,
+                currentPlayerId: gameState.currentPlayerId,
+                pot: gameState.pot,
+                currentBet: gameState.currentBet,
+                communityCards: safeCommunityCards,
+                gamePhase: gameState.gamePhase,
+                // 연결 객체는 포함하지 않음
+            };
+            
+            return safeState;
+        }
+
+        // PeerJS 클라이언트 설정 (게스트용)
+        function setupPeerClient(roomCode, nickname) {
+            try {
+                // 더 안정적인 PeerJS 연결을 위한 옵션 설정
+                const peerOptions = {
+                    debug: 2, // 로그 레벨 (0-3)
+                    config: {
+                        'iceServers': [
+                            { urls: 'stun:stun.l.google.com:19302' },
+                            { urls: 'stun:stun1.l.google.com:19302' }
+                        ]
+                    }
+                };
+                
+                peer = new Peer(undefined, peerOptions); // 자동 ID 생성
+                
+                peer.on('open', (id) => {
+                    console.log('게스트 연결 성공, 내 ID:', id);
+                    
+                    // 호스트(방 코드)에 연결
+                    const conn = peer.connect(roomCode, {
+                        reliable: true,
+                        serialization: 'json'  // 직렬화 방식을 'json'으로 명시
+                    });
+                    
+                    conn.on('open', () => {
+                        // 호스트 연결에 성공
+                        console.log('호스트와 연결됨');
+                        
+                        // 연결 정보 저장
+                        gameState.connections.push(conn);
+                        
+                        // 입장 메시지 보내기 (간단한 형태의 객체만 전송)
+                        conn.send({
+                            type: 'join',
+                            data: {
+                                id: gameState.myId,
+                                nickname: nickname,
+                                chips: 1000
+                            }
+                        });
+                        
+                        // 로비에서 게임룸으로 전환
+                        lobby.classList.add('hidden');
+                        gameRoom.classList.remove('hidden');
+                    });
+                    
+                    conn.on('data', (data) => {
+                        handlePeerMessage(data, conn);
+                    });
+                    
+                    conn.on('close', () => {
+                        // 호스트와 연결이 끊어졌을 때
+                        showMessage('연결 종료', '호스트와의 연결이 끊어졌습니다.');
+                        resetGame();
+                    });
+                    
+                    conn.on('error', (err) => {
+                        console.error('연결 오류:', err);
+                        showMessage('연결 오류', '호스트와 연결 중 오류가 발생했습니다.');
+                    });
+                });
+                
+                peer.on('error', (err) => {
+                    console.error('PeerJS 오류:', err);
+                    if (err.type === 'peer-unavailable') {
+                        showLobbyMessage('해당 방 코드가 존재하지 않습니다.');
+                    } else {
+                        showMessage('연결 오류', '서버 연결에 실패했습니다. 다시 시도해주세요.');
+                    }
+                });
+            } catch (err) {
+                console.error('PeerJS 초기화 오류:', err);
+                showMessage('연결 오류', '연결 초기화에 실패했습니다.');
+            }
+        }
+
+        // 채팅은 P2P로만 구현 (Socket.io 제거)
+        function setupSocketConnection(roomCode, nickname) {
+            // Socket.io를 사용하지 않고 PeerJS만 사용하도록 수정
+            console.log('P2P 채팅 시스템 초기화 완료');
+            // 이 함수는 이제 호환성을 위해 비어있는 상태로 유지
+        }
+
+        // PeerJS 메시지 처리
+        function handlePeerMessage(data, conn) {
+            try {
+                console.log('받은 메시지:', data);
+                
+                if (!data || !data.type) {
+                    console.error('유효하지 않은 메시지 형식:', data);
+                    return;
+                }
+                
+                switch (data.type) {
+                    case 'join':
+                        // 새 플레이어 입장
+                        if (gameState.isHost) {
+                            const newPlayer = {
+                                id: data.data.id,
+                                nickname: data.data.nickname,
+                                chips: data.data.chips,
+                                cards: [],
+                                bet: 0,
+                                folded: false,
+                                position: assignPlayerPosition()
+                            };
+                            
+                            gameState.players.push(newPlayer);
+                            addChatMessage('시스템', `${data.data.nickname}님이 입장했습니다.`);
+                            renderPlayers();
+                            
+                            // 안전하게 게임 상태 브로드캐스트
+                            try {
+                                broadcastGameState();
+                            } catch (err) {
+                                console.error('입장 후 상태 업데이트 오류:', err);
+                            }
+                        }
+                        break;
+                    
+                    case 'gameState':
+                        // 게임 상태 업데이트 (호스트로부터)
+                        if (!gameState.isHost && data.data) {
+                            try {
+                                updateGameState(data.data);
+                            } catch (err) {
+                                console.error('게임 상태 업데이트 오류:', err);
+                                // 오류 발생 시 UI 표시
+                                showMessage('연결 오류', '게임 상태 업데이트 중 오류가 발생했습니다. 재접속이 필요할 수 있습니다.');
+                            }
+                        }
+                        break;
+                    
+                    case 'action':
+                        // 플레이어 액션 (체크, 콜, 레이즈, 폴드)
+                        if (gameState.isHost && data.data && data.data.playerId) {
+                            handlePlayerAction(data.data.playerId, data.data.action, data.data.amount);
+                        }
+                        break;
+                    
+                    case 'chat':
+                        // 채팅 메시지
+                        if (data.data && data.data.nickname && data.data.message) {
+                            addChatMessage(data.data.nickname, data.data.message);
+                        }
+                        break;
+                    
+                    case 'startGame':
+                        // 게임 시작 요청
+                        if (gameState.isHost && gameState.players.length >= 2) {
+                            startNewGame();
+                        }
+                        break;
+                        
+                    case 'error':
+                    case 'minimal':
+                        // 오류 메시지나 최소 상태 메시지
+                        console.log('시스템 메시지:', data.message);
+                        break;
+                        
+                    default:
+                        console.warn('알 수 없는 메시지 유형:', data.type);
+                }
+            } catch (err) {
+                console.error('메시지 처리 중 오류 발생:', err);
+                gameState.lastError = err.message;
+            }
+        }
+
+        // 게임 상태 브로드캐스트 (호스트만)
+        function broadcastGameState() {
+            if (gameState.isHost) {
+                try {
+                    // 직렬화 가능한 안전한 게임 상태 객체 생성
+                    const safeGameState = createSafeGameState();
+                    
+                    const stateMessage = {
+                        type: 'gameState',
+                        data: safeGameState
+                    };
+                    
+                    // 각 연결에 개별적으로 전송 시도, 오류가 발생해도 다른 연결 처리 계속
+                    for (let i = 0; i < gameState.connections.length; i++) {
+                        const conn = gameState.connections[i];
+                        if (conn && conn.open) {
+                            try {
+                                conn.send(stateMessage);
+                            } catch (err) {
+                                console.error('상태 전송 오류:', err);
+                                // 연결에 문제가 있다면 연결 제거 고려
+                                if (err.toString().includes('circular') || 
+                                    err.toString().includes('JSON')) {
+                                    console.log('손상된 연결 감지, 게임 상태 단순화 시도');
+                                    
+                                    // 매우 단순화된 상태만 전송 시도
+                                    try {
+                                        conn.send({
+                                            type: 'minimal',
+                                            message: '게임 상태를 업데이트 할 수 없습니다. 다시 연결해 주세요.'
+                                        });
+                                    } catch (e) {
+                                        // 이 연결은 완전히 손상됨
+                                        console.error('연결 복구 불가, 제거 필요:', e);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.error('게임 상태 브로드캐스트 중 심각한 오류:', err);
+                    // 심각한 오류 발생 시 게임 상태 로깅
+                    console.log('현재 게임 상태:', JSON.stringify({
+                        phase: gameState.gamePhase,
+                        playerCount: gameState.players.length,
+                        connectionCount: gameState.connections.length
+                    }));
+                }
+            }
+        }
+
+        // 게임 상태 업데이트 (게스트용)
+        function updateGameState(newState) {
+            // 내 카드 정보 임시 저장 (덮어쓰지 않도록)
+            const myCards = gameState.myCards;
+            
+            // 나머지 게임 상태 업데이트
+            gameState.players = newState.players;
+            gameState.currentPlayerId = newState.currentPlayerId;
+            gameState.pot = newState.pot;
+            gameState.currentBet = newState.currentBet;
+            gameState.communityCards = newState.communityCards;
+            gameState.gamePhase = newState.gamePhase;
+            
+            // 내 카드 정보 복원
+            gameState.myCards = myCards;
+            
+            // UI 업데이트
+            renderGameState();
+        }
+
+        // 채팅 메시지 전송
+        function sendChatMessage(message) {
+            // 내 닉네임 찾기
+            const myPlayer = gameState.players.find(p => p.id === gameState.myId);
+            const nickname = myPlayer ? myPlayer.nickname : '익명';
+            
+            // 채팅 메시지 객체
+            const chatMsg = {
+                type: 'chat',
+                data: {
+                    nickname: nickname,
+                    message: message
+                }
+            };
+            
+            // PeerJS를 통해 전송
+            gameState.connections.forEach(conn => {
+                if (conn.open) {
+                    conn.send(chatMsg);
+                }
+            });
+            
+            // Socket.io 제거
+            
+            // 내 화면에도 표시
+            addChatMessage(nickname, message);
+        }
+
+        // 채팅 메시지 표시
+        function addChatMessage(sender, message) {
+            const msgElement = document.createElement('div');
+            msgElement.innerHTML = `<strong>${sender}:</strong> ${message}`;
+            chatMessages.appendChild(msgElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // 플레이어 위치 할당
+        function assignPlayerPosition() {
+            // 이미 할당된 위치들
+            const takenPositions = gameState.players.map(p => p.position);
+            
+            // 가능한 위치: 0(아래), 1(오른쪽), 2(위), 3(왼쪽)
+            for (let pos = 0; pos < 6; pos++) {
+                if (!takenPositions.includes(pos)) {
+                    return pos;
+                }
+            }
+            
+            return 0; // 기본값
+        }
+
+        // 플레이어 ID 생성
+        function generatePlayerId() {
+            return 'player_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        // 플레이어 렌더링
+        function renderPlayers() {
+            // 플레이어 위치 컨테이너 초기화
+            playerPositions.innerHTML = '';
+            
+            // 플레이어 위치 계산 및 렌더링
+            gameState.players.forEach(player => {
+                const playerElement = document.createElement('div');
+                playerElement.className = 'player';
+                
+                // 위치 계산 (0: 아래, 1: 오른쪽, 2: 위, 3: 왼쪽, 이후 공간 분배)
+                let posX, posY;
+                
+                switch (player.position % 4) {
+                    case 0: // 아래
+                        posX = 50;
+                        posY = 85;
+                        break;
+                    case 1: // 오른쪽
+                        posX = 85;
+                        posY = 50;
+                        break;
+                    case 2: // 위
+                        posX = 50;
+                        posY = 15;
+                        break;
+                    case 3: // 왼쪽
+                        posX = 15;
+                        posY = 50;
+                        break;
+                }
+                
+                // 위치 적용
+                playerElement.style.left = `${posX}%`;
+                playerElement.style.top = `${posY}%`;
+                
+                // 플레이어 정보 표시
+                playerElement.innerHTML = `
+                    <div class="player-info">
+                        <div class="player-name">${player.nickname} ${player.id === gameState.myId ? '(나)' : ''}</div>
+                        <div class="player-chips">$${player.chips}</div>
+                        ${player.bet > 0 ? `<div class="player-bet">베팅: $${player.bet}</div>` : ''}
+                    </div>
+                    <div class="player-cards" id="cards-${player.id}">
+                        ${renderPlayerCards(player)}
+                    </div>
+                `;
+                
+                playerPositions.appendChild(playerElement);
+            });
+        }
+
+        // 플레이어 카드 렌더링
+        function renderPlayerCards(player) {
+            // 자신의 카드는 앞면으로, 다른 플레이어는 뒷면으로
+            if (player.id === gameState.myId) {
+                return gameState.myCards.map(card => {
+                    const isRed = card.suit === '♥' || card.suit === '♦';
+                    return `
+                        <div class="card ${player.folded ? 'folded' : ''} ${card.shown ? 'flipped' : ''}">
+                            <div class="card-front">
+                                <div class="card-value ${isRed ? 'red' : 'black'}">${card.value}</div>
+                                <div class="card-suit ${isRed ? 'red' : 'black'}">${card.suit}</div>
+                            </div>
+                            <div class="card-back"></div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                // 다른 플레이어의 카드 (개수만큼 뒷면 생성)
+                const numCards = player.cards ? player.cards.length : 0;
+                let cardHtml = '';
+                
+                for (let i = 0; i < numCards; i++) {
+                    cardHtml += `
+                        <div class="card ${player.folded ? 'folded' : ''}">
+                            <div class="card-front"></div>
+                            <div class="card-back"></div>
+                        </div>
+                    `;
+                }
+                
+                return cardHtml;
+            }
+        }
+
+        // 커뮤니티 카드 렌더링
+        function renderCommunityCards() {
+            communityCards.innerHTML = '';
+            
+            gameState.communityCards.forEach(card => {
+                const isRed = card.suit === '♥' || card.suit === '♦';
+                const cardElement = document.createElement('div');
+                cardElement.className = `card ${card.shown ? 'flipped' : ''}`;
+                
+                cardElement.innerHTML = `
+                    <div class="card-front">
+                        <div class="card-value ${isRed ? 'red' : 'black'}">${card.value}</div>
+                        <div class="card-suit ${isRed ? 'red' : 'black'}">${card.suit}</div>
+                    </div>
+                    <div class="card-back"></div>
+                `;
+                
+                communityCards.appendChild(cardElement);
+            });
+        }
+
+        // 게임 상태 렌더링
+        function renderGameState() {
+            renderPlayers();
+            renderCommunityCards();
+            
+            // 팟 금액 업데이트
+            potAmount.textContent = `팟: $${gameState.pot}`;
+            
+            // 액션 버튼 상태 업데이트
+            updateActionButtons();
+        }
+
+        // 액션 버튼 상태 업데이트
+        function updateActionButtons() {
+            const isMyTurn = gameState.currentPlayerId === gameState.myId;
+            
+            // 턴이 아니면 모든 버튼 비활성화
+            if (!isMyTurn || gameState.gamePhase === 'waiting' || gameState.gamePhase === 'showdown') {
+                btnFold.disabled = true;
+                btnCheck.disabled = true;
+                btnCall.disabled = true;
+                btnRaise.disabled = true;
+                raiseAmount.disabled = true;
+                return;
+            }
+            
+            // 내 플레이어 정보 가져오기
+            const myPlayer = gameState.players.find(p => p.id === gameState.myId);
+            if (!myPlayer) return;
+            
+            // 폴드는 항상 가능
+            btnFold.disabled = false;
+            
+            // 체크는 현재 베팅과 내 베팅이 같을 때만 가능
+            btnCheck.disabled = gameState.currentBet !== myPlayer.bet;
+            
+            // 콜은 현재 베팅이 내 베팅보다 클 때만 가능
+            btnCall.disabled = gameState.currentBet <= myPlayer.bet;
+            if (!btnCall.disabled) {
+                const callAmount = gameState.currentBet - myPlayer.bet;
+                btnCall.textContent = `콜 $${callAmount}`;
+            }
+            
+            // 레이즈는 충분한 칩이 있을 때만 가능
+            const minRaise = gameState.currentBet * 2;
+            btnRaise.disabled = myPlayer.chips < minRaise;
+            raiseAmount.disabled = btnRaise.disabled;
+            raiseAmount.min = minRaise;
+            raiseAmount.max = myPlayer.chips;
+            raiseAmount.value = minRaise;
+        }
+
+        // 게임 덱 초기화
+        function initGameDeck() {
+            const suits = ['♠', '♥', '♦', '♣'];
+            const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+            
+            gameState.deck = [];
+            
+            // 덱 생성
+            for (let suit of suits) {
+                for (let value of values) {
+                    gameState.deck.push({
+                        suit,
+                        value,
+                        shown: false
+                    });
+                }
+            }
+            
+            // 덱 셔플
+            shuffleDeck();
+        }
+
+        // 덱 셔플
+        function shuffleDeck() {
+            for (let i = gameState.deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [gameState.deck[i], gameState.deck[j]] = [gameState.deck[j], gameState.deck[i]];
+            }
+        }
+
+        // 카드 나눠주기
+        function dealCards() {
+            // 모든 플레이어 카드 초기화
+            gameState.players.forEach(player => {
+                player.cards = [];
+                player.folded = false;
+                player.bet = 0;
+            });
+            
+            // 커뮤니티 카드 초기화
+            gameState.communityCards = [];
+            
+            // 각 플레이어에게 2장씩 카드 나누기
+            for (let i = 0; i < 2; i++) {
+                gameState.players.forEach(player => {
+                    const card = gameState.deck.pop();
+                    
+                    // 자신의 카드인 경우 별도 저장
+                    if (player.id === gameState.myId) {
+                        gameState.myCards.push({...card, shown: true});
+                    }
+                    
+                    player.cards.push(card);
+                });
+            }
+            
+            // 커뮤니티 카드 5장 준비 (아직 공개하지 않음)
+            for (let i = 0; i < 5; i++) {
+                gameState.communityCards.push({
+                    ...gameState.deck.pop(),
+                    shown: false
+                });
+            }
+        }
+
+        // 새 게임 시작
+        function startNewGame() {
+            if (gameState.isHost) {
+                // 덱 초기화 및 셔플
+                initGameDeck();
+                
+                // 카드 나눠주기
+                dealCards();
+                
+                // 게임 페이즈 설정
+                gameState.gamePhase = 'preflop';
+                gameState.pot = 0;
+                gameState.currentBet = 20; // 기본 베팅
+                
+                // 첫 플레이어 설정 (랜덤 또는 순서대로)
+                gameState.currentPlayerId = gameState.players[0].id;
+                
+                // 상태 브로드캐스트
+                broadcastGameState();
+                
+                // 시스템 메시지
+                addChatMessage('시스템', '새 게임이 시작되었습니다!');
+            }
+            
+            // UI 업데이트
+            renderGameState();
+        }
+
+        // 플레이어 액션 처리
+        function performAction(action, amount = 0) {
+            // 내 턴이 아니면 무시
+            if (gameState.currentPlayerId !== gameState.myId) return;
+            
+            // 내 플레이어 정보
+            const myPlayer = gameState.players.find(p => p.id === gameState.myId);
+            if (!myPlayer) return;
+            
+            // 액션 메시지 생성
+            const actionMessage = {
+                type: 'action',
+                data: {
+                    playerId: gameState.myId,
+                    action: action,
+                    amount: amount
+                }
+            };
+            
+            // 호스트인 경우 직접 처리, 아니면 전송
+            if (gameState.isHost) {
+                handlePlayerAction(gameState.myId, action, amount);
+            } else {
+                // 모든 연결에 전송
+                gameState.connections.forEach(conn => {
+                    if (conn.open) {
+                        conn.send(actionMessage);
+                    }
+                });
+            }
+            
+            // 액션에 따른 UI 로깅
+            switch (action) {
+                case 'fold':
+                    addChatMessage('시스템', `${myPlayer.nickname}님이 폴드했습니다.`);
+                    break;
+                case 'check':
+                    addChatMessage('시스템', `${myPlayer.nickname}님이 체크했습니다.`);
+                    break;
+                case 'call':
+                    const callAmount = gameState.currentBet - myPlayer.bet;
+                    addChatMessage('시스템', `${myPlayer.nickname}님이 $${callAmount}를 콜했습니다.`);
+                    break;
+                case 'raise':
+                    addChatMessage('시스템', `${myPlayer.nickname}님이 $${amount}로 레이즈했습니다.`);
+                    break;
+            }
+        }
+
+        // 플레이어 액션 처리 (호스트만)
+        function handlePlayerAction(playerId, action, amount) {
+            if (!gameState.isHost) return;
+            
+            // 플레이어 찾기
+            const player = gameState.players.find(p => p.id === playerId);
+            if (!player) return;
+            
+            // 액션 처리
+            switch (action) {
+                case 'fold':
+                    player.folded = true;
+                    break;
+                
+                case 'check':
+                    // 체크는 베팅 변화 없음
+                    break;
+                
+                case 'call':
+                    const callAmount = gameState.currentBet - player.bet;
+                    player.chips -= callAmount;
+                    player.bet = gameState.currentBet;
+                    gameState.pot += callAmount;
+                    break;
+                
+                case 'raise':
+                    // 이전 베팅과의 차이 계산
+                    const raiseAmount = amount - player.bet;
+                    player.chips -= raiseAmount;
+                    player.bet = amount;
+                    gameState.pot += raiseAmount;
+                    gameState.currentBet = amount;
+                    break;
+            }
+            
+            // 다음 플레이어로 턴 넘기기
+            moveToNextPlayer();
+            
+            // 라운드 종료 체크
+            checkRoundEnd();
+            
+            // 게임 상태 브로드캐스트
+            broadcastGameState();
+        }
+
+        // 다음 플레이어로 턴 넘기기
+        function moveToNextPlayer() {
+            // 현재 플레이어 인덱스 찾기
+            const currentIndex = gameState.players.findIndex(p => p.id === gameState.currentPlayerId);
+            let nextIndex = (currentIndex + 1) % gameState.players.length;
+            
+            // 폴드하지 않은 다음 플레이어 찾기
+            while (gameState.players[nextIndex].folded) {
+                nextIndex = (nextIndex + 1) % gameState.players.length;
+                
+                // 모든 플레이어가 폴드했는지 확인
+                if (nextIndex === currentIndex) break;
+            }
+            
+            // 다음 플레이어 ID 설정
+            gameState.currentPlayerId = gameState.players[nextIndex].id;
+        }
+
+        // 라운드 종료 체크 및 처리
+        function checkRoundEnd() {
+            // 폴드하지 않은 플레이어 수 확인
+            const activePlayers = gameState.players.filter(p => !p.folded);
+            
+            // 한 명만 남았으면 게임 종료
+            if (activePlayers.length === 1) {
+                endGame(activePlayers[0].id);
+                return;
+            }
+            
+            // 모든 플레이어의 베팅이 동일한지 확인
+            const allBetsEqual = gameState.players.every(p => 
+                p.folded || p.bet === gameState.currentBet
+            );
+            
+            if (allBetsEqual) {
+                // 페이즈에 따라 다음 단계로 진행
+                advanceGamePhase();
+            }
+        }
+
+        // 게임 페이즈 진행
+        function advanceGamePhase() {
+            switch (gameState.gamePhase) {
+                case 'preflop':
+                    // 플랍 단계로 진행 (3장 공개)
+                    gameState.gamePhase = 'flop';
+                    for (let i = 0; i < 3; i++) {
+                        gameState.communityCards[i].shown = true;
+                    }
+                    break;
+                
+                case 'flop':
+                    // 턴 단계로 진행 (4번째 카드 공개)
+                    gameState.gamePhase = 'turn';
+                    gameState.communityCards[3].shown = true;
+                    break;
+                
+                case 'turn':
+                    // 리버 단계로 진행 (5번째 카드 공개)
+                    gameState.gamePhase = 'river';
+                    gameState.communityCards[4].shown = true;
+                    break;
+                
+                case 'river':
+                    // 쇼다운 단계로 진행 (모든 카드 공개 및 승자 결정)
+                    gameState.gamePhase = 'showdown';
+                    determineWinner();
+                    break;
+            }
+            
+            // 각 라운드 시작 시 베팅 초기화
+            gameState.players.forEach(p => p.bet = 0);
+            gameState.currentBet = 0;
+            
+            // 시스템 메시지
+            addChatMessage('시스템', `${gameState.gamePhase.toUpperCase()} 단계로 진행합니다.`);
+        }
+
+        // 승자 결정 (간소화된 버전)
+        function determineWinner() {
+            // 폴드하지 않은 플레이어만 대상
+            const activePlayers = gameState.players.filter(p => !p.folded);
+            
+            // 간소화된 예시: 랜덤으로 승자 선택 (실제로는 카드 조합 계산 필요)
+            const winnerIndex = Math.floor(Math.random() * activePlayers.length);
+            const winner = activePlayers[winnerIndex];
+            
+            // 승자에게 팟 지급
+            winner.chips += gameState.pot;
+            
+            // 시스템 메시지
+            addChatMessage('시스템', `${winner.nickname}님이 $${gameState.pot}의 팟을 획득했습니다!`);
+            
+            // 잠시 후 새 게임 시작 준비
+            setTimeout(() => {
+                gameState.gamePhase = 'waiting';
+                gameState.pot = 0;
+                broadcastGameState();
+                
+                // 새 게임 시작 버튼 표시 (호스트만)
+                if (gameState.isHost) {
+                    showMessage('게임 종료', '다음 게임을 시작하시겠습니까?', true);
+                }
+            }, 3000);
+        }
+
+        // 게임 종료 (한 명만 남은 경우)
+        function endGame(winnerId) {
+            const winner = gameState.players.find(p => p.id === winnerId);
+            
+            // 승자에게 팟 지급
+            winner.chips += gameState.pot;
+            
+            // 시스템 메시지
+            addChatMessage('시스템', `모든 플레이어가 폴드하여 ${winner.nickname}님이 $${gameState.pot}의 팟을 획득했습니다!`);
+            
+            // 잠시 후 새 게임 시작 준비
+            setTimeout(() => {
+                gameState.gamePhase = 'waiting';
+                gameState.pot = 0;
+                broadcastGameState();
+                
+                // 새 게임 시작 버튼 표시 (호스트만)
+                if (gameState.isHost) {
+                    showMessage('게임 종료', '다음 게임을 시작하시겠습니까?', true);
+                }
+            }, 3000);
+        }
+
+        // 플레이어 연결 해제 처리
+        function handlePlayerDisconnect(peerId) {
+            // 연결 목록에서 제거
+            gameState.connections = gameState.connections.filter(
+                conn => conn.peer !== peerId
+            );
+            
+            // 플레이어 목록에서 해당 플레이어 찾기
+            const disconnectedPlayer = gameState.players.find(p => p.id === peerId);
+            
+            if (disconnectedPlayer) {
+                // 플레이어 폴드 처리
+                disconnectedPlayer.folded = true;
+                
+                // 시스템 메시지
+                addChatMessage('시스템', `${disconnectedPlayer.nickname}님이 연결이 끊겼습니다.`);
+                
+                // 게임 상태 업데이트
+                broadcastGameState();
+                
+                // 현재 차례가 연결 끊긴 플레이어라면 다음으로 넘김
+                if (gameState.currentPlayerId === peerId) {
+                    moveToNextPlayer();
+                    broadcastGameState();
+                }
+                
+                // 게임 진행 체크
+                checkRoundEnd();
+            }
+        }
+
+        // 게임 리셋
+        function resetGame() {
+            gameState.players = [];
+            gameState.connections = [];
+            gameState.myCards = [];
+            gameState.communityCards = [];
+            gameState.pot = 0;
+            gameState.gamePhase = 'waiting';
+            
+            // 로비로 돌아가기
+            lobby.classList.remove('hidden');
+            gameRoom.classList.add('hidden');
+        }
+
+        // 초기 이벤트 리스너 설정
+        window.addEventListener('beforeunload', () => {
+            // 연결 종료 처리
+            if (peer) {
+                peer.destroy();
+            }
+            
+            // Socket.io 제거
+        });
+
+        // 게임 시작 요청 (호스트만)
+        function requestStartGame() {
+            if (gameState.isHost && gameState.gamePhase === 'waiting' && gameState.players.length >= 2) {
+                startNewGame();
+            } else {
+                // 게스트는 호스트에게 시작 요청만 보냄
+                gameState.connections.forEach(conn => {
+                    if (conn.open) {
+                        conn.send({
+                            type: 'startGame'
+                        });
+                    }
+                });
+            }
+        }
+
+        // 메시지 박스 확장 함수 (게임 시작 버튼 추가)
+        function showMessage(title, content, showStartButton = false) {
+            messageTitle.textContent = title;
+            messageContent.textContent = content;
+            
+            // 시작 버튼이 필요한 경우
+            if (showStartButton && gameState.isHost) {
+                const startBtn = document.createElement('button');
+                startBtn.className = 'btn';
+                startBtn.textContent = '게임 시작';
+                startBtn.style.marginRight = '10px';
+                startBtn.onclick = () => {
+                    requestStartGame();
+                    messageBox.classList.add('hidden');
+                };
+                
+                messageOk.before(startBtn);
+            }
+            
+            messageBox.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
